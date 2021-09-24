@@ -165,14 +165,22 @@ func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 		}
 	}
 
-	// TODO: Step 3 - Don't collide with others.
-	// Use information in GameState to prevent your Battlesnake from colliding with others.
+	safeMoves := 0
+	for _, isSafe := range possibleMoves {
+		if isSafe {
+			safeMoves++
+		}
+	}
 
-	// TODO: Step 4 - Find food.
-	// Use information in GameState to seek out and find food.
+	if safeMoves == 0 {
+		logger.Debug().Msg("NO SAFE MOVES")
+		nextMove := randomEmptySquare(ctx, state)
+		logger.Info().Msgf("MOVE: %s", nextMove)
 
-	// Finally, choose a move from the available safe moves.
-	// TODO: Step 5 - Select a move to make based on strategy, rather than random.
+		return BattlesnakeMoveResponse{
+			Move: nextMove,
+		}
+	}
 
 	nextMove := findNextMove(ctx, state, possibleMoves)
 	logger.Info().Msgf("MOVE: %s", nextMove)
@@ -180,6 +188,87 @@ func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 	return BattlesnakeMoveResponse{
 		Move: nextMove,
 	}
+}
+
+func randomEmptySquare(ctx context.Context, state GameState) string {
+	zerolog.Ctx(ctx).Debug().Msg("Random empty square")
+
+	myHead := state.You.Head
+	possibleMoves := map[string]bool{
+		"up":    true,
+		"down":  true,
+		"left":  true,
+		"right": true,
+	}
+
+	boardWidth := state.Board.Width
+	boardHeight := state.Board.Height
+
+	if myHead.X == boardWidth-1 {
+		possibleMoves["right"] = false
+	}
+
+	if myHead.X == 0 {
+		possibleMoves["left"] = false
+	}
+
+	if myHead.Y == boardHeight-1 {
+		possibleMoves["up"] = false
+	}
+
+	if myHead.Y == 0 {
+		possibleMoves["down"] = false
+	}
+
+	// Places to avoid
+	snakes := map[Coord]struct{}{}
+	// Add all other snakes and allow for head-to-head
+	// if we can win
+	for _, s := range state.Board.Snakes {
+		for _, p := range s.Body {
+			snakes[p] = struct{}{}
+		}
+	}
+
+	// For each possible move, select the safe ones
+	for p := range snakes {
+		for _, m := range []string{"up", "down", "left", "right"} {
+			switch m {
+			case "up":
+				nextHead := myHead
+				nextHead.Y++
+				if p == nextHead {
+					possibleMoves["up"] = false
+
+				}
+				break
+			case "down":
+				nextHead := myHead
+				nextHead.Y--
+				if p == nextHead {
+					possibleMoves["down"] = false
+
+				}
+				break
+			case "left":
+				nextHead := myHead
+				nextHead.X--
+				if p == nextHead {
+					possibleMoves["left"] = false
+				}
+				break
+			case "right":
+				nextHead := myHead
+				nextHead.X++
+				if p == nextHead {
+					possibleMoves["right"] = false
+				}
+				break
+			}
+		}
+	}
+
+	return randomMove(ctx, state, possibleMoves)
 }
 
 func findNextMove(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
@@ -280,3 +369,4 @@ func nextPossibleMoves(head Coord) []Coord {
 }
 
 //Nice game: https://play.battlesnake.com/g/c22c39c1-c13c-4772-844a-c7b5816c3460/?turn=308
+//length 30: https://play.battlesnake.com/g/60269951-977a-47c9-b6bd-a5e5e002030c/?turn=243
