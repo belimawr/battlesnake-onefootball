@@ -5,6 +5,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/hlog"
+	zlog "github.com/rs/zerolog/log"
 )
 
 type GameState struct {
@@ -77,7 +82,7 @@ func HandleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
-		log.Printf("ERROR: Failed to encode info response, %s", err)
+		zlog.Printf("ERROR: Failed to encode info response, %s", err)
 	}
 }
 
@@ -85,29 +90,39 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 	state := GameState{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
-		log.Printf("ERROR: Failed to decode start json, %s", err)
+		zlog.Printf("ERROR: Failed to decode start json, %s", err)
 		return
 	}
 
-	start(state)
+	start(r.Context(), state)
 
 	// Nothing to respond with here
 }
 
 func HandleMove(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	state := GameState{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
-		log.Printf("ERROR: Failed to decode move json, %s", err)
+		zlog.Printf("ERROR: Failed to decode move json, %s", err)
 		return
 	}
 
-	response := move(state)
+	zerolog.Ctx(ctx).UpdateContext(func(c zerolog.Context) zerolog.Context {
+		c = c.Str("GameID", state.Game.ID)
+		c = c.Str("SnakeID", state.You.ID)
+		c = c.Int("Turn", state.Turn)
+		c = c.Stringer("url", r.URL)
+
+		return c
+	})
+
+	response := move(r.Context(), state)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		log.Printf("ERROR: Failed to encode move response, %s", err)
+		zlog.Printf("ERROR: Failed to encode move response, %s", err)
 		return
 	}
 }
@@ -116,11 +131,11 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 	state := GameState{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
-		log.Printf("ERROR: Failed to decode end json, %s", err)
+		zlog.Printf("ERROR: Failed to decode end json, %s", err)
 		return
 	}
 
-	end(state)
+	end(r.Context(), state)
 
 	// Nothing to respond with here
 }
@@ -133,11 +148,23 @@ func main() {
 		port = "8080"
 	}
 
-	http.HandleFunc("/", HandleIndex)
-	http.HandleFunc("/start", HandleStart)
-	http.HandleFunc("/move", HandleMove)
-	http.HandleFunc("/end", HandleEnd)
+	logger := zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	// Replace the global logger
+	log.SetFlags(0)
+	log.SetOutput(logger)
+
+	r := chi.NewRouter()
+	r.Use(hlog.NewHandler(logger))
+	r.Use(hlog.RequestIDHandler("req_id", "Request-Id"))
+
+	r.Get("/", HandleIndex)
+	r.Post("/start", HandleStart)
+	r.Post("/move", HandleMove)
+	r.Post("/end", HandleEnd)
+
+	logger.Info().Msgf("Starting Battlesnake Server at http://0.0.0.0:%s...", port)
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		logger.Fatal().Err(err).Msg("ListenAndServe error")
+	}
 }

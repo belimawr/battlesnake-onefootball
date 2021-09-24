@@ -6,8 +6,10 @@ package main
 // from the list of possible moves!
 
 import (
-	"log"
+	"context"
 	"math/rand"
+
+	"github.com/rs/zerolog"
 )
 
 // This function is called when you register your Battlesnake on play.battlesnake.com
@@ -16,7 +18,6 @@ import (
 // For customization options, see https://docs.battlesnake.com/references/personalization
 // TIP: If you open your Battlesnake URL in browser you should see this data.
 func info() BattlesnakeInfoResponse {
-	log.Println("INFO")
 	return BattlesnakeInfoResponse{
 		APIVersion: "1",
 		Author:     "Tiago Queiroz", // TODO: Your Battlesnake username
@@ -29,24 +30,21 @@ func info() BattlesnakeInfoResponse {
 // This function is called everytime your Battlesnake is entered into a game.
 // The provided GameState contains information about the game that's about to be played.
 // It's purely for informational purposes, you don't have to make any decisions here.
-func start(state GameState) {
-	log.Printf("%s START\n", state.Game.ID)
+func start(ctx context.Context, state GameState) {
+	zerolog.Ctx(ctx).Info().Msgf("%s START", state.Game.ID)
 }
 
 // This function is called when a game your Battlesnake was in has ended.
 // It's purely for informational purposes, you don't have to make any decisions here.
-func end(state GameState) {
-	log.Printf("%s END\n\n", state.Game.ID)
+func end(ctx context.Context, state GameState) {
+	zerolog.Ctx(ctx).Info().Msgf("%s END", state.Game.ID)
 }
 
 // This function is called on every turn of a game. Use the provided GameState to decide
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
-func move(state GameState) BattlesnakeMoveResponse {
-	// fmt.Println("Sankes")
-	// for _, snake := range state.Board.Snakes {
-	// 	fmt.Printf("ID: %s, Body: %#v\n", snake.ID, snake.Body)
-	// }
+func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
+	logger := zerolog.Ctx(ctx)
 	me := state.You
 	possibleMoves := map[string]bool{
 		"up":    true,
@@ -72,9 +70,6 @@ func move(state GameState) BattlesnakeMoveResponse {
 	// Use information in GameState to prevent your Battlesnake from moving beyond the boundaries of the board.
 	boardWidth := state.Board.Width
 	boardHeight := state.Board.Height
-
-	log.Print("Board   ", boardWidth, boardHeight)
-	log.Print("My head ", state.You.Head.X, state.You.Head.Y)
 
 	if myHead.X == boardWidth-1 {
 		possibleMoves["right"] = false
@@ -179,20 +174,20 @@ func move(state GameState) BattlesnakeMoveResponse {
 	// Finally, choose a move from the available safe moves.
 	// TODO: Step 5 - Select a move to make based on strategy, rather than random.
 
-	nextMove := findNextMove(state, possibleMoves)
-	log.Printf("%s TURN %d: %s\n", state.Game.ID, state.Turn, nextMove)
+	nextMove := findNextMove(ctx, state, possibleMoves)
+	logger.Info().Msgf("MOVE: %s", nextMove)
 
 	return BattlesnakeMoveResponse{
 		Move: nextMove,
 	}
 }
 
-func findNextMove(state GameState, possibleMoves map[string]bool) string {
+func findNextMove(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
 	me := state.You
 	// Find food
-	if me.Health < 30 {
-		log.Println("find food!")
-		return gotoFood(state, possibleMoves)
+	if me.Health < 20 {
+		zerolog.Ctx(ctx).Debug().Msg("find food!")
+		return gotoFood(ctx, state, possibleMoves)
 	}
 
 	// loop up and down
@@ -215,12 +210,14 @@ func findNextMove(state GameState, possibleMoves map[string]bool) string {
 	return "down"
 }
 
-func gotoFood(state GameState, possibleMoves map[string]bool) string {
-	log.Printf("%s TURN %d: Finding food\n", state.Game.ID, state.Turn)
+func gotoFood(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
+	logger := zerolog.Ctx(ctx)
+	logger.Info().Msgf("%s TURN %d: Finding food", state.Game.ID, state.Turn)
+
 	myHead := state.You.Head
 	// If there is no food, move randomly
 	if len(state.Board.Food) == 0 {
-		return randomMove(state, possibleMoves)
+		return randomMove(ctx, state, possibleMoves)
 	}
 
 	for _, food := range state.Board.Food {
@@ -251,10 +248,10 @@ func gotoFood(state GameState, possibleMoves map[string]bool) string {
 		}
 	}
 
-	return randomMove(state, possibleMoves)
+	return randomMove(ctx, state, possibleMoves)
 }
 
-func randomMove(state GameState, possibleMoves map[string]bool) string {
+func randomMove(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
 	safeMoves := []string{}
 
 	for move, isSafe := range possibleMoves {
@@ -264,11 +261,11 @@ func randomMove(state GameState, possibleMoves map[string]bool) string {
 	}
 
 	if len(safeMoves) == 0 {
-		log.Printf("%s TURN %d: NO SAFE MOVES! Going down\n", state.Game.ID, state.Turn)
+		zerolog.Ctx(ctx).Info().Msg("NO SAFE MOVES! Going down")
 		return "down"
 	}
 
-	log.Printf("%s TURN %d: Random move!\n", state.Game.ID, state.Turn)
+	zerolog.Ctx(ctx).Info().Msg("Random move!")
 	return safeMoves[rand.Intn(len(safeMoves))]
 }
 
