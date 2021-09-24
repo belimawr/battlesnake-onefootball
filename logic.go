@@ -47,7 +47,7 @@ func move(state GameState) BattlesnakeMoveResponse {
 	// for _, snake := range state.Board.Snakes {
 	// 	fmt.Printf("ID: %s, Body: %#v\n", snake.ID, snake.Body)
 	// }
-
+	me := state.You
 	possibleMoves := map[string]bool{
 		"up":    true,
 		"down":  true,
@@ -92,61 +92,67 @@ func move(state GameState) BattlesnakeMoveResponse {
 		possibleMoves["down"] = false
 	}
 
-	// TODO: Step 2 - Don't hit yourself.
-	// Use information in GameState to prevent your Battlesnake from colliding with itself.
-	// mybody := state.You.Body
+	// Places to avoid
+	snakes := map[Coord]struct{}{}
+	// Add myself
+	for _, c := range me.Body {
+		snakes[c] = struct{}{}
+	}
+
+	for _, s := range state.Board.Snakes {
+		if me.ID == s.ID {
+			continue
+		}
+
+		// I win on head to head collisions
+		// Add the other snake's body, but not its head
+		if me.Health > s.Health {
+			for i := 1; i < len(s.Body); i++ {
+				snakes[s.Body[i]] = struct{}{}
+			}
+			continue
+		}
+
+		for _, p := range s.Body {
+			snakes[p] = struct{}{}
+		}
+	}
 
 	// For each possible move do something:
-	for _, m := range []string{"up", "down", "left", "right"} {
-		switch m {
-		case "up":
-			nextHead := myHead
-			nextHead.Y++
-			for _, s := range state.Board.Snakes {
-				for _, p := range s.Body {
-					if p == nextHead {
-						possibleMoves["up"] = false
-						break
-					}
+	for p := range snakes {
+		for _, m := range []string{"up", "down", "left", "right"} {
+			switch m {
+			case "up":
+				nextHead := myHead
+				nextHead.Y++
+				if p == nextHead {
+					possibleMoves["up"] = false
+
 				}
-			}
-			break
-		case "down":
-			nextHead := myHead
-			nextHead.Y--
-			for _, s := range state.Board.Snakes {
-				for _, p := range s.Body {
-					if p == nextHead {
-						possibleMoves["down"] = false
-						break
-					}
+				break
+			case "down":
+				nextHead := myHead
+				nextHead.Y--
+				if p == nextHead {
+					possibleMoves["down"] = false
+
 				}
-			}
-			break
-		case "left":
-			nextHead := myHead
-			nextHead.X--
-			for _, s := range state.Board.Snakes {
-				for _, p := range s.Body {
-					if p == nextHead {
-						possibleMoves["left"] = false
-						break
-					}
+				break
+			case "left":
+				nextHead := myHead
+				nextHead.X--
+				if p == nextHead {
+					possibleMoves["left"] = false
 				}
-			}
-			break
-		case "right":
-			nextHead := myHead
-			nextHead.X++
-			for _, s := range state.Board.Snakes {
-				for _, p := range s.Body {
-					if p == nextHead {
-						possibleMoves["right"] = false
-						break
-					}
+				break
+			case "right":
+				nextHead := myHead
+				nextHead.X++
+				if p == nextHead {
+					possibleMoves["right"] = false
 				}
+				break
 			}
-			break
 		}
 	}
 
