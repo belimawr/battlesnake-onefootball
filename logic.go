@@ -6,8 +6,8 @@ package main
 // from the list of possible moves!
 
 import (
-	"fmt"
 	"log"
+	"math/rand"
 )
 
 // This function is called when you register your Battlesnake on play.battlesnake.com
@@ -43,10 +43,10 @@ func end(state GameState) {
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
 func move(state GameState) BattlesnakeMoveResponse {
-	fmt.Println("Sankes")
-	for _, snake := range state.Board.Snakes {
-		fmt.Printf("ID: %s, Body: %#v\n", snake.ID, snake.Body)
-	}
+	// fmt.Println("Sankes")
+	// for _, snake := range state.Board.Snakes {
+	// 	fmt.Printf("ID: %s, Body: %#v\n", snake.ID, snake.Body)
+	// }
 
 	possibleMoves := map[string]bool{
 		"up":    true,
@@ -102,40 +102,48 @@ func move(state GameState) BattlesnakeMoveResponse {
 		case "up":
 			nextHead := myHead
 			nextHead.Y++
-			for _, p := range state.You.Body {
-				if p == nextHead {
-					possibleMoves["up"] = false
-					break
+			for _, s := range state.Board.Snakes {
+				for _, p := range s.Body {
+					if p == nextHead {
+						possibleMoves["up"] = false
+						break
+					}
 				}
 			}
 			break
 		case "down":
 			nextHead := myHead
 			nextHead.Y--
-			for _, p := range state.You.Body {
-				if p == nextHead {
-					possibleMoves["down"] = false
-					break
+			for _, s := range state.Board.Snakes {
+				for _, p := range s.Body {
+					if p == nextHead {
+						possibleMoves["down"] = false
+						break
+					}
 				}
 			}
 			break
 		case "left":
 			nextHead := myHead
 			nextHead.X--
-			for _, p := range state.You.Body {
-				if p == nextHead {
-					possibleMoves["left"] = false
-					break
+			for _, s := range state.Board.Snakes {
+				for _, p := range s.Body {
+					if p == nextHead {
+						possibleMoves["left"] = false
+						break
+					}
 				}
 			}
 			break
 		case "right":
 			nextHead := myHead
 			nextHead.X++
-			for _, p := range state.You.Body {
-				if p == nextHead {
-					possibleMoves["right"] = false
-					break
+			for _, s := range state.Board.Snakes {
+				for _, p := range s.Body {
+					if p == nextHead {
+						possibleMoves["right"] = false
+						break
+					}
 				}
 			}
 			break
@@ -150,30 +158,22 @@ func move(state GameState) BattlesnakeMoveResponse {
 
 	// Finally, choose a move from the available safe moves.
 	// TODO: Step 5 - Select a move to make based on strategy, rather than random.
-	// var nextMove string
 
-	// safeMoves := []string{}
-	// for move, isSafe := range possibleMoves {
-	// 	if isSafe {
-	// 		safeMoves = append(safeMoves, move)
-	// 	}
-	// }
+	nextMove := findNextMove(state, possibleMoves)
+	log.Printf("%s TURN %d: %s\n", state.Game.ID, state.Turn, nextMove)
 
-	// fmt.Println("Safe moves ", safeMoves)
-
-	// if len(safeMoves) == 0 {
-	// 	nextMove = "down"
-	// 	log.Printf("%s MOVE %d: No safe moves detected! Moving %s\n", state.Game.ID, state.Turn, nextMove)
-	// } else {
-	// 	nextMove = safeMoves[rand.Intn(len(safeMoves))]
-	// 	log.Printf("%s MOVE %d: %s\n", state.Game.ID, state.Turn, nextMove)
-	// }
 	return BattlesnakeMoveResponse{
-		Move: findNextMove(state, possibleMoves),
+		Move: nextMove,
 	}
 }
 
 func findNextMove(state GameState, possibleMoves map[string]bool) string {
+	me := state.You
+	// Find food
+	if me.Health < 30 {
+		log.Println("find food!")
+		return gotoFood(state, possibleMoves)
+	}
 
 	// loop up and down
 	if possibleMoves["up"] {
@@ -193,6 +193,63 @@ func findNextMove(state GameState, possibleMoves map[string]bool) string {
 	}
 
 	return "down"
+}
+
+func gotoFood(state GameState, possibleMoves map[string]bool) string {
+	log.Printf("%s TURN %d: Finding food\n", state.Game.ID, state.Turn)
+	myHead := state.You.Head
+	// If there is no food, move randomly
+	if len(state.Board.Food) == 0 {
+		return randomMove(state, possibleMoves)
+	}
+
+	for _, food := range state.Board.Food {
+		if myHead.X > food.X {
+			if possibleMoves["left"] {
+				return "left"
+			}
+			continue
+		}
+		if myHead.X < food.X {
+			if possibleMoves["right"] {
+				return "right"
+			}
+			continue
+		}
+
+		if myHead.Y > food.Y {
+			if possibleMoves["down"] {
+				return "down"
+			}
+			continue
+		}
+		if myHead.Y < food.Y {
+			if possibleMoves["up"] {
+				return "up"
+			}
+			continue
+		}
+	}
+
+	return randomMove(state, possibleMoves)
+}
+
+func randomMove(state GameState, possibleMoves map[string]bool) string {
+	safeMoves := []string{}
+
+	for move, isSafe := range possibleMoves {
+		if isSafe {
+			safeMoves = append(safeMoves, move)
+		}
+	}
+
+	if len(safeMoves) == 0 {
+		log.Printf("%s TURN %d: NO SAFE MOVES! Going down\n", state.Game.ID, state.Turn)
+		return "down"
+	}
+
+	log.Printf("%s TURN %d: Random move!\n", state.Game.ID, state.Turn)
+	return safeMoves[rand.Intn(len(safeMoves))]
 }
 
 //Nice game: https://play.battlesnake.com/g/c22c39c1-c13c-4772-844a-c7b5816c3460/?turn=308
