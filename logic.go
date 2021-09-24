@@ -20,10 +20,10 @@ import (
 func info() BattlesnakeInfoResponse {
 	return BattlesnakeInfoResponse{
 		APIVersion: "1",
-		Author:     "Tiago Queiroz", // TODO: Your Battlesnake username
-		Color:      "#babaca",       // TODO: Personalize
-		Head:       "snowman",       // TODO: Personalize
-		Tail:       "coffee",        // TODO: Personalize
+		Author:     "Tiago Queiroz",
+		Color:      "#1a0a74",
+		Head:       "snowman",
+		Tail:       "coffee",
 	}
 }
 
@@ -274,7 +274,7 @@ func randomEmptySquare(ctx context.Context, state GameState) string {
 func findNextMove(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
 	me := state.You
 	// Find food
-	if me.Health < 20 {
+	if me.Health < 75 {
 		zerolog.Ctx(ctx).Debug().Msg("find food!")
 		return gotoFood(ctx, state, possibleMoves)
 	}
