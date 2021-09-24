@@ -17,7 +17,8 @@ import (
 // It controls your Battlesnake appearance and author permissions.
 // For customization options, see https://docs.battlesnake.com/references/personalization
 // TIP: If you open your Battlesnake URL in browser you should see this data.
-func info() BattlesnakeInfoResponse {
+func info(ctx context.Context) BattlesnakeInfoResponse {
+	zerolog.Ctx(ctx).Info().Msg("Sending snake info")
 	return BattlesnakeInfoResponse{
 		APIVersion: "1",
 		Author:     "Tiago Queiroz",
@@ -31,13 +32,13 @@ func info() BattlesnakeInfoResponse {
 // The provided GameState contains information about the game that's about to be played.
 // It's purely for informational purposes, you don't have to make any decisions here.
 func start(ctx context.Context, state GameState) {
-	zerolog.Ctx(ctx).Info().Msgf("%s START", state.Game.ID)
+	zerolog.Ctx(ctx).Info().Msg("Starting game!")
 }
 
 // This function is called when a game your Battlesnake was in has ended.
 // It's purely for informational purposes, you don't have to make any decisions here.
 func end(ctx context.Context, state GameState) {
-	zerolog.Ctx(ctx).Info().Msgf("%s END", state.Game.ID)
+	zerolog.Ctx(ctx).Info().Msg("The game has ended")
 }
 
 // This function is called on every turn of a game. Use the provided GameState to decide

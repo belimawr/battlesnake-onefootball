@@ -77,12 +77,13 @@ type BattlesnakeMoveResponse struct {
 // HTTP Handlers
 
 func HandleIndex(w http.ResponseWriter, r *http.Request) {
-	response := info()
+	ctx := r.Context()
+	response := info(ctx)
 
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
-		zlog.Printf("ERROR: Failed to encode info response, %s", err)
+		zerolog.Ctx(ctx).Error().Err(err).Msg("ERROR: Failed to encode info response")
 	}
 }
 
@@ -95,8 +96,6 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start(r.Context(), state)
-
-	// Nothing to respond with here
 }
 
 func HandleMove(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +121,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		zlog.Printf("ERROR: Failed to encode move response, %s", err)
+		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to encode move response")
 		return
 	}
 }
