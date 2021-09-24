@@ -99,6 +99,8 @@ func move(state GameState) BattlesnakeMoveResponse {
 		snakes[c] = struct{}{}
 	}
 
+	// Add all other snakes and allow for head-to-head
+	// if we can win
 	for _, s := range state.Board.Snakes {
 		if me.ID == s.ID {
 			continue
@@ -118,7 +120,19 @@ func move(state GameState) BattlesnakeMoveResponse {
 		}
 	}
 
-	// For each possible move do something:
+	// Add possible next moves fom all snakes
+	// but ourselves
+	for _, s := range state.Board.Snakes {
+		if me.ID == s.ID {
+			continue
+		}
+
+		for _, p := range nextPossibleMoves(s.Head) {
+			snakes[p] = struct{}{}
+		}
+	}
+
+	// For each possible move, select the safe ones
 	for p := range snakes {
 		for _, m := range []string{"up", "down", "left", "right"} {
 			switch m {
@@ -256,6 +270,16 @@ func randomMove(state GameState, possibleMoves map[string]bool) string {
 
 	log.Printf("%s TURN %d: Random move!\n", state.Game.ID, state.Turn)
 	return safeMoves[rand.Intn(len(safeMoves))]
+}
+
+func nextPossibleMoves(head Coord) []Coord {
+	moves := []Coord{}
+	moves = append(moves, Coord{X: head.X + 1, Y: head.Y})
+	moves = append(moves, Coord{X: head.X - 1, Y: head.Y})
+	moves = append(moves, Coord{X: head.X, Y: head.Y + 1})
+	moves = append(moves, Coord{X: head.X, Y: head.Y - 1})
+
+	return moves
 }
 
 //Nice game: https://play.battlesnake.com/g/c22c39c1-c13c-4772-844a-c7b5816c3460/?turn=308
