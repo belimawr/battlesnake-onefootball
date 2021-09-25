@@ -27,5 +27,3 @@ func TestNeckAvoidance(t *testing.T) {
 		}
 	}
 }
-
-// TODO: More GameState test cases!

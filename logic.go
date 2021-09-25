@@ -46,126 +46,8 @@ func end(ctx context.Context, state GameState) {
 // We've provided some code and comments to get you started.
 func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 	logger := zerolog.Ctx(ctx)
-	me := state.You
-	possibleMoves := map[string]bool{
-		"up":    true,
-		"down":  true,
-		"left":  true,
-		"right": true,
-	}
 
-	// Step 0: Don't let your Battlesnake move back in on it's own neck
-	myHead := state.You.Body[0] // Coordinates of your head
-	myNeck := state.You.Body[1] // Coordinates of body piece directly behind your head (your "neck")
-	if myNeck.X < myHead.X {
-		possibleMoves["left"] = false
-	} else if myNeck.X > myHead.X {
-		possibleMoves["right"] = false
-	} else if myNeck.Y < myHead.Y {
-		possibleMoves["down"] = false
-	} else if myNeck.Y > myHead.Y {
-		possibleMoves["up"] = false
-	}
-
-	// TODO: Step 1 - Don't hit walls.
-	// Use information in GameState to prevent your Battlesnake from moving beyond the boundaries of the board.
-	boardWidth := state.Board.Width
-	boardHeight := state.Board.Height
-
-	if myHead.X == boardWidth-1 {
-		possibleMoves["right"] = false
-	}
-
-	if myHead.X == 0 {
-		possibleMoves["left"] = false
-	}
-
-	if myHead.Y == boardHeight-1 {
-		possibleMoves["up"] = false
-	}
-
-	if myHead.Y == 0 {
-		possibleMoves["down"] = false
-	}
-
-	// Places to avoid
-	snakes := map[Coord]struct{}{}
-	// Add myself
-	for _, c := range me.Body {
-		snakes[c] = struct{}{}
-	}
-
-	// Add all other snakes and allow for head-to-head
-	// if we can win
-	for _, s := range state.Board.Snakes {
-		if me.ID == s.ID {
-			continue
-		}
-
-		// I win on head to head collisions
-		// Add the other snake's body, but not its head
-		if me.Health > s.Health {
-			for i := 1; i < len(s.Body); i++ {
-				snakes[s.Body[i]] = struct{}{}
-			}
-			continue
-		}
-
-		for _, p := range s.Body {
-			snakes[p] = struct{}{}
-		}
-	}
-
-	// Add possible next moves fom all snakes
-	// but ourselves
-	for _, s := range state.Board.Snakes {
-		if me.ID == s.ID {
-			continue
-		}
-
-		for _, p := range nextPossibleMoves(s.Head) {
-			snakes[p] = struct{}{}
-		}
-	}
-
-	// For each possible move, select the safe ones
-	for p := range snakes {
-		for _, m := range []string{"up", "down", "left", "right"} {
-			switch m {
-			case "up":
-				nextHead := myHead
-				nextHead.Y++
-				if p == nextHead {
-					possibleMoves["up"] = false
-
-				}
-				break
-			case "down":
-				nextHead := myHead
-				nextHead.Y--
-				if p == nextHead {
-					possibleMoves["down"] = false
-
-				}
-				break
-			case "left":
-				nextHead := myHead
-				nextHead.X--
-				if p == nextHead {
-					possibleMoves["left"] = false
-				}
-				break
-			case "right":
-				nextHead := myHead
-				nextHead.X++
-				if p == nextHead {
-					possibleMoves["right"] = false
-				}
-				break
-			}
-		}
-	}
-
+	possibleMoves := safeMoves(state, true, true)
 	safeMoves := 0
 	for _, isSafe := range possibleMoves {
 		if isSafe {
@@ -174,7 +56,7 @@ func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 	}
 
 	if safeMoves == 0 {
-		logger.Debug().Msg("NO SAFE MOVES")
+		logger.Debug().Msg("no safe moves, trying a less restrictive approach") //
 		nextMove := randomEmptySquare(ctx, state)
 		logger.Info().Msgf("MOVE: %s", nextMove)
 
@@ -194,80 +76,7 @@ func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 func randomEmptySquare(ctx context.Context, state GameState) string {
 	zerolog.Ctx(ctx).Debug().Msg("Random empty square")
 
-	myHead := state.You.Head
-	possibleMoves := map[string]bool{
-		"up":    true,
-		"down":  true,
-		"left":  true,
-		"right": true,
-	}
-
-	boardWidth := state.Board.Width
-	boardHeight := state.Board.Height
-
-	if myHead.X == boardWidth-1 {
-		possibleMoves["right"] = false
-	}
-
-	if myHead.X == 0 {
-		possibleMoves["left"] = false
-	}
-
-	if myHead.Y == boardHeight-1 {
-		possibleMoves["up"] = false
-	}
-
-	if myHead.Y == 0 {
-		possibleMoves["down"] = false
-	}
-
-	// Places to avoid
-	snakes := map[Coord]struct{}{}
-	// Add all other snakes and allow for head-to-head
-	// if we can win
-	for _, s := range state.Board.Snakes {
-		for _, p := range s.Body {
-			snakes[p] = struct{}{}
-		}
-	}
-
-	// For each possible move, select the safe ones
-	for p := range snakes {
-		for _, m := range []string{"up", "down", "left", "right"} {
-			switch m {
-			case "up":
-				nextHead := myHead
-				nextHead.Y++
-				if p == nextHead {
-					possibleMoves["up"] = false
-
-				}
-				break
-			case "down":
-				nextHead := myHead
-				nextHead.Y--
-				if p == nextHead {
-					possibleMoves["down"] = false
-
-				}
-				break
-			case "left":
-				nextHead := myHead
-				nextHead.X--
-				if p == nextHead {
-					possibleMoves["left"] = false
-				}
-				break
-			case "right":
-				nextHead := myHead
-				nextHead.X++
-				if p == nextHead {
-					possibleMoves["right"] = false
-				}
-				break
-			}
-		}
-	}
+	possibleMoves := safeMoves(state, true, false)
 
 	return randomMove(ctx, state, possibleMoves)
 }
@@ -367,6 +176,128 @@ func nextPossibleMoves(head Coord) []Coord {
 	moves = append(moves, Coord{X: head.X, Y: head.Y - 1})
 
 	return moves
+}
+
+// safeMoves returns all safe moves.
+// - allowHeadColision: Allows for head collisions when we're bigger
+// - predictMoves: makes unsae any move that could hit any
+//   snake's head on the next move
+func safeMoves(
+	state GameState,
+	allowHeadColision, predictMoves bool,
+) map[string]bool {
+
+	possibleMoves := map[string]bool{
+		"up":    true,
+		"down":  true,
+		"left":  true,
+		"right": true,
+	}
+
+	me := state.You
+	myHead := me.Head
+	boardWidth := state.Board.Width
+	boardHeight := state.Board.Height
+
+	// Avoid Walls
+	if myHead.X == boardWidth-1 {
+		possibleMoves["right"] = false
+	}
+
+	if myHead.X == 0 {
+		possibleMoves["left"] = false
+	}
+
+	if myHead.Y == boardHeight-1 {
+		possibleMoves["up"] = false
+	}
+
+	if myHead.Y == 0 {
+		possibleMoves["down"] = false
+	}
+
+	// Avoid hitting other noGoCoords
+	noGoCoords := map[Coord]struct{}{}
+	// Add ourselves
+	for _, c := range me.Body {
+		noGoCoords[c] = struct{}{}
+	}
+
+	// Add all other snakes and allow for head-to-head
+	// if we can win
+	for _, s := range state.Board.Snakes {
+		if me.ID == s.ID {
+			continue
+		}
+
+		// Add the whole snake's body
+		for _, p := range s.Body {
+			noGoCoords[p] = struct{}{}
+		}
+
+		if allowHeadColision {
+			// If we win on head to head collisions
+			// remove the other snake's head from noGoCoords
+			if me.Health > s.Health {
+				delete(noGoCoords, s.Head)
+			}
+		}
+	}
+
+	if predictMoves {
+		// Add possible next moves fom all snakes
+		// but ourselves
+		for _, s := range state.Board.Snakes {
+			if me.ID == s.ID {
+				continue
+			}
+
+			for _, p := range nextPossibleMoves(s.Head) {
+				noGoCoords[p] = struct{}{}
+			}
+		}
+	}
+
+	// For each possible move, verify which ones are safe
+	for p := range noGoCoords {
+		for _, m := range []string{"up", "down", "left", "right"} {
+			switch m {
+			case "up":
+				nextHead := myHead
+				nextHead.Y++
+				if p == nextHead {
+					possibleMoves["up"] = false
+				}
+				break
+
+			case "down":
+				nextHead := myHead
+				nextHead.Y--
+				if p == nextHead {
+					possibleMoves["down"] = false
+				}
+				break
+
+			case "left":
+				nextHead := myHead
+				nextHead.X--
+				if p == nextHead {
+					possibleMoves["left"] = false
+				}
+				break
+
+			case "right":
+				nextHead := myHead
+				nextHead.X++
+				if p == nextHead {
+					possibleMoves["right"] = false
+				}
+				break
+			}
+		}
+	}
+
+	return possibleMoves
 }
 
 //Nice game: https://play.battlesnake.com/g/c22c39c1-c13c-4772-844a-c7b5816c3460/?turn=308

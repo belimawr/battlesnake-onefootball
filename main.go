@@ -81,16 +81,14 @@ func HandleIndex(w http.ResponseWriter, r *http.Request) {
 	response := info(ctx)
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("ERROR: Failed to encode info response")
 	}
 }
 
 func HandleStart(w http.ResponseWriter, r *http.Request) {
 	state := GameState{}
-	err := json.NewDecoder(r.Body).Decode(&state)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&state); err != nil {
 		zlog.Printf("ERROR: Failed to decode start json, %s", err)
 		return
 	}
@@ -100,28 +98,26 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 
 func HandleMove(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := zerolog.Ctx(ctx)
 	state := GameState{}
-	err := json.NewDecoder(r.Body).Decode(&state)
-	if err != nil {
-		zlog.Printf("ERROR: Failed to decode move json, %s", err)
+	if err := json.NewDecoder(r.Body).Decode(&state); err != nil {
+		logger.Error().Err(err).Msg("Failed to decode move json")
 		return
 	}
 
-	zerolog.Ctx(ctx).UpdateContext(func(c zerolog.Context) zerolog.Context {
+	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
 		c = c.Str("GameID", state.Game.ID)
 		c = c.Str("SnakeID", state.You.ID)
 		c = c.Int("Turn", state.Turn)
 		c = c.Stringer("url", r.URL)
-
 		return c
 	})
 
 	response := move(r.Context(), state)
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to encode move response")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		logger.Error().Err(err).Msg("Failed to encode move response")
 		return
 	}
 }
@@ -144,7 +140,7 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
-		port = "8080"
+		port = "3000" //tes
 	}
 
 	logger := zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr})
@@ -164,6 +160,6 @@ func main() {
 
 	logger.Info().Msgf("Starting Battlesnake Server at http://0.0.0.0:%s...", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
-		logger.Fatal().Err(err).Msg("ListenAndServe error")
+		logger.Panic().Err(err).Msg("ListenAndServe error")
 	}
 }
