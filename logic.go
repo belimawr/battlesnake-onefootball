@@ -47,15 +47,15 @@ func end(ctx context.Context, state GameState) {
 func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 	logger := zerolog.Ctx(ctx)
 
-	possibleMoves := safeMoves(state, true, true)
-	safeMoves := 0
+	possibleMoves := safeMoves(state, true, true, true)
+	safeMovesCount := 0
 	for _, isSafe := range possibleMoves {
 		if isSafe {
-			safeMoves++
+			safeMovesCount++
 		}
 	}
 
-	if safeMoves == 0 {
+	if safeMovesCount == 0 {
 		logger.Debug().Msg("no safe moves, trying a less restrictive approach") //
 		nextMove := randomEmptySquare(ctx, state)
 		logger.Info().Msgf("MOVE: %s", nextMove)
@@ -76,13 +76,19 @@ func move(ctx context.Context, state GameState) BattlesnakeMoveResponse {
 func randomEmptySquare(ctx context.Context, state GameState) string {
 	zerolog.Ctx(ctx).Debug().Msg("Random empty square")
 
-	possibleMoves := safeMoves(state, true, false)
+	possibleMoves := safeMoves(state, true, false, true)
 
 	return randomMove(ctx, state, possibleMoves)
 }
 
-func findNextMove(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
+func findNextMove(
+	ctx context.Context,
+	state GameState,
+	possibleMoves map[string]bool,
+) string {
+
 	me := state.You
+
 	// Find food
 	if me.Health < 75 {
 		zerolog.Ctx(ctx).Debug().Msg("find food!")
@@ -107,6 +113,18 @@ func findNextMove(ctx context.Context, state GameState, possibleMoves map[string
 	}
 
 	return "down"
+}
+
+// onHarzard returns true if any part of a snake is into
+// a hazard square
+func onHarzard(me Battlesnake, hazard []Coord) bool {
+	for _, sauce := range hazard {
+		if me.Head == sauce {
+			return true
+		}
+	}
+
+	return false
 }
 
 func gotoFood(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
@@ -150,22 +168,39 @@ func gotoFood(ctx context.Context, state GameState, possibleMoves map[string]boo
 	return randomMove(ctx, state, possibleMoves)
 }
 
-func randomMove(ctx context.Context, state GameState, possibleMoves map[string]bool) string {
-	safeMoves := []string{}
-
+func movesToSlice(possibleMoves map[string]bool) []string {
+	safeMovesSlice := []string{}
 	for move, isSafe := range possibleMoves {
 		if isSafe {
-			safeMoves = append(safeMoves, move)
+			safeMovesSlice = append(safeMovesSlice, move)
 		}
 	}
 
-	if len(safeMoves) == 0 {
+	return safeMovesSlice
+}
+
+func randomMove(
+	ctx context.Context,
+	state GameState,
+	possibleMoves map[string]bool,
+) string {
+
+	safeMovesSlice := movesToSlice(possibleMoves)
+
+	if len(safeMovesSlice) == 0 {
+		zerolog.Ctx(ctx).Info().Msg("NO SAFE MOVES! Trying to go into sauce")
+
+		desperateMovesSlice := movesToSlice(safeMoves(state, true, false, false))
+		if len(desperateMovesSlice) != 0 {
+			return desperateMovesSlice[rand.Intn(len(desperateMovesSlice))]
+		}
+
 		zerolog.Ctx(ctx).Info().Msg("NO SAFE MOVES! Going down")
 		return "down"
 	}
 
 	zerolog.Ctx(ctx).Info().Msg("Random move!")
-	return safeMoves[rand.Intn(len(safeMoves))]
+	return safeMovesSlice[rand.Intn(len(safeMovesSlice))]
 }
 
 func nextPossibleMoves(head Coord) []Coord {
@@ -185,6 +220,7 @@ func nextPossibleMoves(head Coord) []Coord {
 func safeMoves(
 	state GameState,
 	allowHeadColision, predictMoves bool,
+	avoidHazard bool,
 ) map[string]bool {
 
 	possibleMoves := map[string]bool{
@@ -258,6 +294,12 @@ func safeMoves(
 		}
 	}
 
+	if avoidHazard {
+		for _, sauce := range state.Board.Hazards {
+			noGoCoords[sauce] = struct{}{}
+		}
+	}
+
 	// For each possible move, verify which ones are safe
 	for p := range noGoCoords {
 		for _, m := range []string{"up", "down", "left", "right"} {
@@ -300,5 +342,4 @@ func safeMoves(
 	return possibleMoves
 }
 
-//Nice game: https://play.battlesnake.com/g/c22c39c1-c13c-4772-844a-c7b5816c3460/?turn=308
-//length 30: https://play.battlesnake.com/g/60269951-977a-47c9-b6bd-a5e5e002030c/?turn=243
+//Investigate why it went into the wall
