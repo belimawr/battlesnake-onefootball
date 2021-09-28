@@ -1,3 +1,9 @@
+Battlesnake is more fun and addictive than I thought, so it's not a
+one-off fun-coding day at OneFootball, it became something I really
+want to put some effort on, so I decided to move this battlesnake's
+brain into a different repository:
+https://github.com/belimawr/naive-but-kinda-hungry.
+
 # Getting started with [Battlesnake](http://play.battlesnake.com?utm_source=github&utm_medium=readme&utm_campaign=go_starter&utm_content=homepage) and Go
 
 ![Battlesnake Logo](https://media.battlesnake.com/social/StarterSnakeGitHubRepos_Go.png)
